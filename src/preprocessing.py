@@ -66,7 +66,9 @@ def build_preprocessor(X: pd.DataFrame) -> ColumnTransformer:
     categorical_pipeline = Pipeline(
         steps=[
             ("imputer", SimpleImputer(strategy="most_frequent")),
-            ("encoder", OneHotEncoder(handle_unknown="ignore")),
+            # The encoded dataset is small, and dense output keeps it compatible
+            # with HistGradientBoostingClassifier during model comparison.
+            ("encoder", OneHotEncoder(handle_unknown="ignore", sparse_output=False)),
         ]
     )
 
