@@ -30,26 +30,37 @@ def prepare_features_and_target(
     the numerical pipeline after the train/test split. ``customerID`` is an
     identifier rather than a predictive feature, so it is excluded.
     """
-    required_columns = {ID_COLUMN, "TotalCharges", TARGET_COLUMN}
+    required_columns = {"TotalCharges", TARGET_COLUMN}
     missing_columns = required_columns.difference(df.columns)
     if missing_columns:
         raise ValueError(
             f"Dataset is missing required columns: {sorted(missing_columns)}"
         )
 
+    X = prepare_features(df)
+    y = df[TARGET_COLUMN].map(TARGET_MAPPING)
+
+    if y.isna().any():
+        unexpected_labels = df.loc[y.isna(), TARGET_COLUMN].unique()
+        raise ValueError(f"Unexpected churn labels: {unexpected_labels.tolist()}")
+
+    return X, y.astype("int64")
+
+
+def prepare_features(df: pd.DataFrame) -> pd.DataFrame:
+    """Clean raw feature data for training or prediction.
+
+    The target is optional to support inference. ``customerID`` is removed if
+    present, while ``TotalCharges`` is always converted to a numeric value.
+    """
+    if "TotalCharges" not in df.columns:
+        raise ValueError("Dataset is missing required column: 'TotalCharges'")
+
     cleaned_df = df.copy()
     cleaned_df["TotalCharges"] = pd.to_numeric(
         cleaned_df["TotalCharges"], errors="coerce"
     )
-
-    X = cleaned_df.drop(columns=[ID_COLUMN, TARGET_COLUMN])
-    y = cleaned_df[TARGET_COLUMN].map(TARGET_MAPPING)
-
-    if y.isna().any():
-        unexpected_labels = cleaned_df.loc[y.isna(), TARGET_COLUMN].unique()
-        raise ValueError(f"Unexpected churn labels: {unexpected_labels.tolist()}")
-
-    return X, y.astype("int64")
+    return cleaned_df.drop(columns=[ID_COLUMN, TARGET_COLUMN], errors="ignore")
 
 
 def build_preprocessor(X: pd.DataFrame) -> ColumnTransformer:
